@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import * as OpenApiValidator from 'express-openapi-validator';
 import matchRoutes from './routes/matchRoute';
 
 const app = express();
@@ -33,19 +34,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+app.use(
+  OpenApiValidator.middleware({
+    apiSpec: specs as any,
+    validateRequests: true,
+    validateResponses: true, // disable in prod
+  })
+);
 
 // Routes
 app.use('/api/match', matchRoutes);
-
-// Health check endpoint
-app.get<string, {}, {}, never, never>('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // 404 handler
 app.use('*', (req: Request, res: Response) => {
@@ -57,8 +57,7 @@ app.use('*', (req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/health`);
-  console.log(`📍 API Base URL: http://localhost:${PORT}/api`);
-  console.log(`📋 Swagger UI: http://localhost:${PORT}/api-docs`);
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`API Base URL: http://localhost:${PORT}/api`);
+  console.log(`Swagger UI: http://localhost:${PORT}/docs`);
 });
