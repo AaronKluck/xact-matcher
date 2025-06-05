@@ -1,0 +1,19 @@
+{
+    "name": "xact-matcher",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "tsc -b",
+        "dev:server": "npm --workspace=xact-matcher-server run dev",
+        "dev:client": "npm --workspace=xact-matcher-client run dev",
+        "build:all": "npm run build --workspaces",
+        "clean": "tsc -b --clean",
+        "format": "prettier --write .",
+        "lint": "eslint . --ext .ts,.tsx",
+        "test:server": "npm --workspace=xact-matcher-server run test",
+        "test:client": "npm --workspace=xact-matcher-client run test"
+    }
+}
