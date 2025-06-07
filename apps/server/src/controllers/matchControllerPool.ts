@@ -4,7 +4,9 @@ import os from 'os';
 import { Match, Order, Transaction } from 'xact-matcher-shared';
 import { matchOrders } from './matchController';
 
-const BATCH_SIZE = 100;
+// On my 12-core machine, 150 is a good batch size for large requests, both for
+// single requests and multiple requests in parallel.
+const BATCH_SIZE = 150;
 
 export const matchOrdersPool = new Piscina({
     filename: resolve(__dirname, 'matchController.ts'),
