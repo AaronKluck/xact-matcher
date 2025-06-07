@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { matchOrdersPool } from '../controllers/matchControllerPool';
+import { batchedMatchOrders } from '../controllers/matchControllerPool';
 import { Match, Order, Transaction } from 'xact-matcher-shared';
 
 const router = Router();
@@ -124,7 +124,7 @@ router.post<
 >('/',
   async (req, res, next) => {
     try {
-      const matches = await matchOrdersPool.run({ orders: req.body.orders, transactions: req.body.transactions });
+      const matches = await batchedMatchOrders(req.body.orders, req.body.transactions);
       res.json({ matches });
     } catch (err) {
       next(err);

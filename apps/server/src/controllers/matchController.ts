@@ -51,7 +51,8 @@ const matchOrderIdx = (orders: Order[], transaction: Transaction): { orderIdx: n
 export const matchOrders = (
     orders: Order[], transactions: Transaction[]
 ): Match[] => {
-    if (orders.length === 0 || transactions.length === 0) {
+    // If there are no orders, then there's nothing to match against
+    if (orders.length === 0) {
         return [];
     }
 

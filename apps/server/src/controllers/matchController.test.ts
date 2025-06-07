@@ -51,8 +51,13 @@ describe('matchController', () => {
     });
 
     it('empty transactions', () => {
+        const expected: Match[] = [
+            { order: STANDARD_ORDERS[0], txns: [] },
+            { order: STANDARD_ORDERS[1], txns: [] },
+            { order: STANDARD_ORDERS[2], txns: [] },
+        ]
         const result = matchOrders(STANDARD_ORDERS, []);
-        expect(result).toEqual([]);
+        expect(result).toEqual(expected);
     });
 
     it('low scoring match', () => {
