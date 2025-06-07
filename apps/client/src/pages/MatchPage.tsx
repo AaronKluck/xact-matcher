@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Order, Transaction, Match } from 'xact-matcher-shared';
+import { mutateString, mutatePrice } from 'xact-matcher-shared';
+import Cookies from 'js-cookie';
 
 interface MatchResult {
   matches: Match[];
@@ -37,21 +39,33 @@ const generateRandomTransactionType = () => {
   return types[Math.floor(Math.random() * types.length)];
 };
 
-const generateRandomTransactionAmount = (orderPrice: string) => {
-  const price = parseFloat(orderPrice);
-  // Generate a random amount between 80% and 120% of the order price
-  const multiplier = 0.8 + Math.random() * 0.4;
-  return (price * multiplier).toFixed(2);
-};
+const COOKIE_KEYS = {
+  ORDERS: 'xact-matcher-orders',
+  TRANSACTIONS: 'xact-matcher-transactions'
+} as const;
 
 const MatchPage = () => {
   const [orderForm, setOrderForm] = useState<OrderFormData>(initialOrderForm);
   const [transactionForm, setTransactionForm] = useState<TransactionFormData>(initialTransactionForm);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const savedOrders = Cookies.get(COOKIE_KEYS.ORDERS);
+    return savedOrders ? JSON.parse(savedOrders) : [];
+  });
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const savedTransactions = Cookies.get(COOKIE_KEYS.TRANSACTIONS);
+    return savedTransactions ? JSON.parse(savedTransactions) : [];
+  });
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Cookies.set(COOKIE_KEYS.ORDERS, JSON.stringify(orders), { expires: 7 }); // Expires in 7 days
+  }, [orders]);
+
+  useEffect(() => {
+    Cookies.set(COOKIE_KEYS.TRANSACTIONS, JSON.stringify(transactions), { expires: 7 }); // Expires in 7 days
+  }, [transactions]);
 
   const handleOrderInputChange = (field: keyof OrderFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -143,15 +157,25 @@ const MatchPage = () => {
 
   const handleGenerateTransaction = (order: Order) => {
     const newTransaction: Transaction = {
-      customer: order.customer,
-      orderId: order.orderId,
-      date: order.date,
-      item: order.item,
-      price: order.price,
+      customer: mutateString(order.customer),
+      orderId: mutateString(order.orderId),
+      date: mutateString(order.date),
+      item: mutateString(order.item),
+      price: mutatePrice(order.price),
       txnType: generateRandomTransactionType(),
-      txnAmount: parseFloat(generateRandomTransactionAmount(order.price.toString()))
+      txnAmount: mutatePrice(order.price)
     };
     setTransactions([...transactions, newTransaction]);
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm('Are you sure you want to clear all orders and transactions? This cannot be undone.')) {
+      setOrders([]);
+      setTransactions([]);
+      setMatches([]);
+      Cookies.remove(COOKIE_KEYS.ORDERS);
+      Cookies.remove(COOKIE_KEYS.TRANSACTIONS);
+    }
   };
 
   const renderInputForm = <T extends OrderFormData | TransactionFormData>(
@@ -346,8 +370,16 @@ const MatchPage = () => {
   );
 
   return (
-    <div className="p-6 max-w-[1200px] mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Order Transaction Matcher</h1>
+    <div className="p-6 max-w-[1200px] mx-auto bg-gray-50">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Order Transaction Matcher</h1>
+        <button
+          onClick={handleClearAll}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          Clear All Data
+        </button>
+      </div>
       
       <div style={{ display: 'flex', flexDirection: 'row', gap: '2rem', justifyContent: 'center' }}>
         <div style={{ flex: '0 0 500px' }}>
@@ -436,36 +468,14 @@ const MatchPage = () => {
       {matches.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-semibold mb-4">Matching Results</h2>
-          <div className="space-y-8">
+          <div className="space-y-6">
             {matches.map((match, index) => (
-              <div key={index} className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-4">Order {index + 1}</h3>
-                <table className="min-w-full divide-y divide-gray-200 mb-6">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    <tr>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.customer}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.orderId}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.item}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${match.order.price.toFixed(2)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <h4 className="text-lg font-semibold mb-4">Matched Transactions</h4>
-                {match.txns.length === 0 ? (
-                  <p className="text-gray-500">No matching transactions found</p>
-                ) : (
-                  <table className="min-w-full divide-y divide-gray-200">
+              <div key={index} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold">Order {index + 1}</h3>
+                </div>
+                <div className="p-6">
+                  <table className="min-w-full divide-y divide-gray-200 mb-6">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
@@ -473,35 +483,65 @@ const MatchPage = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {match.txns.map(({ txn, score }, txnIndex) => (
-                        <tr key={txnIndex}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.customer}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.orderId}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.item}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.price.toFixed(2)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.txnType}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.txnAmount.toFixed(2)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded ${
-                              score > 0.8 ? 'bg-green-100 text-green-800' :
-                              score > 0.5 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {score.toFixed(2)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.customer}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.orderId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.date}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.item}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${match.order.price.toFixed(2)}</td>
+                      </tr>
                     </tbody>
                   </table>
-                )}
+
+                  <div className="mt-6">
+                    <h4 className="text-lg font-semibold mb-4 text-gray-700">Matched Transactions</h4>
+                    {match.txns.length === 0 ? (
+                      <p className="text-gray-500 italic">No matching transactions found</p>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {match.txns.map(({ txn, score }, txnIndex) => (
+                              <tr key={txnIndex} className={txnIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.customer}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.orderId}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.date}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.item}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.price.toFixed(2)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.txnType}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.txnAmount.toFixed(2)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                  <span className={`px-2 py-1 rounded ${
+                                    score > 0.8 ? 'bg-green-100 text-green-800' :
+                                    score > 0.5 ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}>
+                                    {score.toFixed(2)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
