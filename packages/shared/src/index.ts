@@ -28,5 +28,8 @@ export interface Transaction extends Order {
 
 export interface Match {
     order: Order,
-    txns: Transaction[],
+    txns: {
+        txn: Transaction,
+        score: number,
+    }[]
 }

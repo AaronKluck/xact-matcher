@@ -5,12 +5,14 @@ import { Match, MATCH_FIELD, matchFields, Order, Transaction } from 'xact-matche
 const FIELD_WEIGHTS = {
     [MATCH_FIELD.customer]: 1.0,
     [MATCH_FIELD.orderId]: 1.0,
-    [MATCH_FIELD.date]: 1.0,
-    [MATCH_FIELD.item]: 1.0,
-    [MATCH_FIELD.price]: 1.0,
+    [MATCH_FIELD.date]: 0.7,
+    [MATCH_FIELD.item]: 0.8,
+    [MATCH_FIELD.price]: 0.9,
 } as const;
 
-const matchOrderIdx = (orders: Order[], transaction: Transaction): number => {
+const WEIGHT_SUM = Object.values(FIELD_WEIGHTS).reduce((sum, weight) => sum + weight, 0);
+
+const matchOrderIdx = (orders: Order[], transaction: Transaction): { orderIdx: number, score: number } => {
     const stringify = (arg: any): string => typeof arg === 'string' ? arg : `${arg}`;
 
     const scores: { [field: string]: number[] } = {
@@ -40,10 +42,10 @@ const matchOrderIdx = (orders: Order[], transaction: Transaction): number => {
     });
 
     // Find the index of the order with the highest score
-    const bestIndex = totalScores.reduce((bestIdx, score, idx) => {
+    const orderIdx = totalScores.reduce((bestIdx, score, idx) => {
         return score > totalScores[bestIdx] ? idx : bestIdx;
     }, 0);
-    return bestIndex;
+    return { orderIdx, score: totalScores[orderIdx] / WEIGHT_SUM };
 };
 
 export const matchOrders = (
@@ -57,9 +59,13 @@ export const matchOrders = (
     const matches: Match[] = orders.map(o => ({ order: o, txns: [] }));
 
     for (const txn of transactions) {
-        const bestIndex = matchOrderIdx(orders, txn);
-        matches[bestIndex].txns.push(txn);
+        const { orderIdx, score } = matchOrderIdx(orders, txn);
+        matches[orderIdx].txns.push({ txn, score });
     }
 
     return matches;
+};
+
+export default ({ orders, transactions }: { orders: Order[], transactions: Transaction[] }) => {
+    return matchOrders(orders, transactions);
 };

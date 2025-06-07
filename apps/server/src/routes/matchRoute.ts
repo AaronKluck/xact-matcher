@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { matchOrders } from '../controllers/matchController';
+import { matchOrdersPool } from '../controllers/matchControllerPool';
 import { Match, Order, Transaction } from 'xact-matcher-shared';
 
 const router = Router();
@@ -84,7 +84,15 @@ const router = Router();
  *               txns:
  *                 type: array
  *                 items:
- *                   $ref: '#/components/schemas/Transaction'
+ *                   type: object
+ *                   required:
+ *                     - txn
+ *                     - score
+ *                   properties:
+ *                     txn:
+ *                       $ref: '#/components/schemas/Transaction'
+ *                     score:
+ *                       type: number
  */
 
 /**
@@ -116,7 +124,7 @@ router.post<
 >('/',
   async (req, res, next) => {
     try {
-      const matches = matchOrders(req.body.orders, req.body.transactions);
+      const matches = await matchOrdersPool.run({ orders: req.body.orders, transactions: req.body.transactions });
       res.json({ matches });
     } catch (err) {
       next(err);

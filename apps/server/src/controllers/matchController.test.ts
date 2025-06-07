@@ -19,13 +19,29 @@ const STANDARD_TRANSACTIONS: Transaction[] = [
 
 
 describe('matchController', () => {
-    it('standard', () => {
+    it('purposely mixed up matches still have scores over .5', () => {
         const expected: Match[] = [
-            { order: STANDARD_ORDERS[0], txns: [STANDARD_TRANSACTIONS[0], STANDARD_TRANSACTIONS[1]] },
-            { order: STANDARD_ORDERS[1], txns: [STANDARD_TRANSACTIONS[2], STANDARD_TRANSACTIONS[3]] },
-            { order: STANDARD_ORDERS[2], txns: [STANDARD_TRANSACTIONS[4], STANDARD_TRANSACTIONS[5]] },
+            { order: STANDARD_ORDERS[0], txns: [{ txn: STANDARD_TRANSACTIONS[0], score: expect.any(Number) }, { txn: STANDARD_TRANSACTIONS[1], score: expect.any(Number) }] },
+            { order: STANDARD_ORDERS[1], txns: [{ txn: STANDARD_TRANSACTIONS[2], score: expect.any(Number) }, { txn: STANDARD_TRANSACTIONS[3], score: expect.any(Number) }] },
+            { order: STANDARD_ORDERS[2], txns: [{ txn: STANDARD_TRANSACTIONS[4], score: expect.any(Number) }, { txn: STANDARD_TRANSACTIONS[5], score: expect.any(Number) }] },
         ]
         const result = matchOrders(STANDARD_ORDERS, STANDARD_TRANSACTIONS);
+        expect(result).toEqual(expected);
+        result.forEach(o => { return o.txns.forEach(t => expect(t.score).toBeGreaterThan(.5)); });
+    });
+
+    it('exact matches have a score of 1', () => {
+        const exactMatchingTxns: Transaction[] = [
+            { ...STANDARD_ORDERS[0], txnType: 'payment-99', txnAmount: 1.23 },
+            { ...STANDARD_ORDERS[1], txnType: 'payment-98', txnAmount: 4.56 },
+            { ...STANDARD_ORDERS[2], txnType: 'payment-97', txnAmount: 7.89 },
+        ];
+        const expected: Match[] = [
+            { order: STANDARD_ORDERS[0], txns: [{ txn: exactMatchingTxns[0], score: 1.0 }] },
+            { order: STANDARD_ORDERS[1], txns: [{ txn: exactMatchingTxns[1], score: 1.0 }] },
+            { order: STANDARD_ORDERS[2], txns: [{ txn: exactMatchingTxns[2], score: 1.0 }] },
+        ]
+        const result = matchOrders(STANDARD_ORDERS, exactMatchingTxns);
         expect(result).toEqual(expected);
     });
 
@@ -39,18 +55,20 @@ describe('matchController', () => {
         expect(result).toEqual([]);
     });
 
-    it('awul match', () => {
-        // Some transactions that should not match any orders
-        const extraTransactions: Transaction[] = [
-            { customer: 'Unknown User', orderId: '999', date: '2023-01-01', item: 'Unknown Item', price: 0.00, txnType: 'payment', txnAmount: 0.00 },
+    it('low scoring match', () => {
+        // A transaction that should not (conceptually) match any orders will
+        // still get stuck with one, albeit with a very low score.
+        const nonMatchingTxn: Transaction[] = [
+            { customer: 'Unknown User', orderId: 'banana', date: '3/5/99', item: 'Unknown Item', price: 0.00, txnType: 'payment', txnAmount: 0.00 },
         ];
 
         const expected: Match[] = [
-            { order: STANDARD_ORDERS[0], txns: [STANDARD_TRANSACTIONS[0], STANDARD_TRANSACTIONS[1]] },
-            { order: STANDARD_ORDERS[1], txns: [STANDARD_TRANSACTIONS[2], STANDARD_TRANSACTIONS[3]] },
-            { order: STANDARD_ORDERS[2], txns: [STANDARD_TRANSACTIONS[4], STANDARD_TRANSACTIONS[5]] },
+            { order: STANDARD_ORDERS[0], txns: [{ txn: nonMatchingTxn[0], score: expect.any(Number) }] },
+            { order: STANDARD_ORDERS[1], txns: [] },
+            { order: STANDARD_ORDERS[2], txns: [] },
         ]
-        const result = matchOrders(STANDARD_ORDERS, STANDARD_TRANSACTIONS);
+        const result = matchOrders(STANDARD_ORDERS, nonMatchingTxn);
         expect(result).toEqual(expected);
+        expect(result[0].txns[0].score).toBeLessThan(0.1);
     });
 });
