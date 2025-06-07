@@ -1,8 +1,8 @@
 import './App.css'
-import UsersPage from './pages/UsersPage';
+import MatchPage from './pages/MatchPage';
 
 function App() {
-  return <UsersPage />
+  return <MatchPage />
 }
 
 export default App
