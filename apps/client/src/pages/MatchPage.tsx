@@ -525,15 +525,7 @@ const MatchPage = () => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.price.toFixed(2)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.txnType}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.txnAmount.toFixed(2)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  <span className={`px-2 py-1 rounded ${
-                                    score > 0.8 ? 'bg-green-100 text-green-800' :
-                                    score > 0.5 ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                    {score.toFixed(2)}
-                                  </span>
-                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">{(Math.floor(score * 100) / 100).toFixed(2)}</td>
                               </tr>
                             ))}
                           </tbody>
