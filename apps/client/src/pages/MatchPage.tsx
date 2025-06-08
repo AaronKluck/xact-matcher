@@ -2,21 +2,63 @@ import { useState, useEffect } from 'react';
 import type { Order, Transaction, Match } from 'xact-matcher-shared';
 import { mutateString, mutatePrice } from 'xact-matcher-shared';
 import Cookies from 'js-cookie';
+import { matchOrdersAndTransactions } from '../api/client';
 
-interface MatchResult {
-  matches: Match[];
-}
+// Styled components for common patterns
+const TableCell = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+  <td className={`table-cell ${className}`}>{children}</td>
+);
 
-interface OrderFormData {
-  customer: string;
-  orderId: string;
-  date: string;
-  item: string;
+const TableHeader = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+  <th className={`table-header-cell ${className}`}>{children}</th>
+);
+
+const TableRow = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+  <tr className={`table-row ${className}`}>{children}</tr>
+);
+
+const TableHead = ({ children }: { children: React.ReactNode }) => (
+  <thead className="table-header">{children}</thead>
+);
+
+const TableBody = ({ children }: { children: React.ReactNode }) => (
+  <tbody className="table-body">{children}</tbody>
+);
+
+const Table = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
+  <table className={`table ${className}`}>{children}</table>
+);
+
+const Button = ({ 
+  children, 
+  onClick, 
+  variant = 'default',
+  className = '',
+  disabled = false 
+}: { 
+  children: React.ReactNode, 
+  onClick?: () => void,
+  variant?: 'default' | 'primary' | 'danger' | 'success',
+  className?: string,
+  disabled?: boolean
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`btn btn-${variant} ${className}`}
+  >
+    {children}
+  </button>
+);
+
+// Redefine these types with all fields being strings so that they can be filled
+// in with forms.
+interface OrderFormData extends Omit<Order, 'price'> {
   price: string;
 }
 
-interface TransactionFormData extends OrderFormData {
-  txnType: string;
+interface TransactionFormData extends Omit<Transaction, 'price' | 'txnAmount'> {
+  price: string;
   txnAmount: string;
 }
 
@@ -43,6 +85,59 @@ const COOKIE_KEYS = {
   ORDERS: 'xact-matcher-orders',
   TRANSACTIONS: 'xact-matcher-transactions'
 } as const;
+
+const Input = ({ 
+  type = 'text',
+  value,
+  onChange,
+  step,
+  className = ''
+}: { 
+  type?: 'text' | 'number' | 'date',
+  value: string,
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  step?: string,
+  className?: string 
+}) => (
+  <input
+    type={type}
+    value={value}
+    onChange={onChange}
+    step={step}
+    className={`form-input ${className}`}
+  />
+);
+
+const FormField = ({ 
+  label,
+  type = 'text',
+  value,
+  onChange,
+  step,
+  className = ''
+}: { 
+  label: string,
+  type?: 'text' | 'number' | 'date',
+  value: string,
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  step?: string,
+  className?: string 
+}) => (
+  <tr>
+    <td className="form-label-cell">
+      <label className="form-label">{label}</label>
+    </td>
+    <td className="form-input-cell">
+      <Input
+        type={type}
+        value={value}
+        onChange={onChange}
+        step={step}
+        className={className}
+      />
+    </td>
+  </tr>
+);
 
 const MatchPage = () => {
   const [orderForm, setOrderForm] = useState<OrderFormData>(initialOrderForm);
@@ -134,19 +229,7 @@ const MatchPage = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/match', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ orders, transactions }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to match orders and transactions');
-      }
-
-      const data: MatchResult = await response.json();
+      const data = await matchOrdersAndTransactions({ orders, transactions });
       setMatches(data.matches);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -185,124 +268,68 @@ const MatchPage = () => {
     onAdd: () => void,
     isTransaction: boolean
   ) => (
-    <div className="bg-white p-6 rounded-lg shadow w-[500px]">
-      <h2 className="text-xl font-semibold mb-6">{title}</h2>
-      <table className="w-full">
-        <tbody className="space-y-4">
-          <tr>
-            <td className="w-[140px] py-2">
-              <label className="text-sm font-medium text-gray-700 text-right block">Customer</label>
-            </td>
-            <td className="py-2">
-              <input
-                type="text"
-                value={formData.customer}
-                onChange={onChange('customer' as keyof T)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td className="w-[140px] py-2">
-              <label className="text-sm font-medium text-gray-700 text-right block">Order ID</label>
-            </td>
-            <td className="py-2">
-              <input
-                type="text"
-                value={formData.orderId}
-                onChange={onChange('orderId' as keyof T)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td className="w-[140px] py-2">
-              <label className="text-sm font-medium text-gray-700 text-right block">Date</label>
-            </td>
-            <td className="py-2">
-              <input
-                type="date"
-                value={formData.date}
-                onChange={onChange('date' as keyof T)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td className="w-[140px] py-2">
-              <label className="text-sm font-medium text-gray-700 text-right block">Item</label>
-            </td>
-            <td className="py-2">
-              <input
-                type="text"
-                value={formData.item}
-                onChange={onChange('item' as keyof T)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td className="w-[140px] py-2">
-              <label className="text-sm font-medium text-gray-700 text-right block">Price</label>
-            </td>
-            <td className="py-2">
-              <input
-                type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={onChange('price' as keyof T)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </td>
-          </tr>
+    <div className="form-card">
+      <h2 className="form-title">{title}</h2>
+      <table className="form-table">
+        <tbody>
+          <FormField
+            label="Customer"
+            value={formData.customer}
+            onChange={onChange('customer' as keyof T)}
+          />
+          <FormField
+            label="Order ID"
+            value={formData.orderId}
+            onChange={onChange('orderId' as keyof T)}
+          />
+          <FormField
+            label="Date"
+            type="date"
+            value={formData.date}
+            onChange={onChange('date' as keyof T)}
+          />
+          <FormField
+            label="Item"
+            value={formData.item}
+            onChange={onChange('item' as keyof T)}
+          />
+          <FormField
+            label="Price"
+            type="number"
+            step="0.01"
+            value={formData.price}
+            onChange={onChange('price' as keyof T)}
+          />
           {isTransaction && (
             <>
-              <tr>
-                <td className="w-[140px] py-2">
-                  <label className="text-sm font-medium text-gray-700 text-right block">Transaction Type</label>
-                </td>
-                <td className="py-2">
-                  <input
-                    type="text"
-                    value={(formData as TransactionFormData).txnType}
-                    onChange={(e) => {
-                      const txnForm = formData as TransactionFormData;
-                      txnForm.txnType = e.target.value;
-                      setTransactionForm({ ...txnForm });
-                    }}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td className="w-[140px] py-2">
-                  <label className="text-sm font-medium text-gray-700 text-right block">Transaction Amount</label>
-                </td>
-                <td className="py-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={(formData as TransactionFormData).txnAmount}
-                    onChange={(e) => {
-                      const txnForm = formData as TransactionFormData;
-                      txnForm.txnAmount = e.target.value;
-                      setTransactionForm({ ...txnForm });
-                    }}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </td>
-              </tr>
+              <FormField
+                label="Transaction Type"
+                value={(formData as TransactionFormData).txnType}
+                onChange={(e) => {
+                  const txnForm = formData as TransactionFormData;
+                  txnForm.txnType = e.target.value;
+                  setTransactionForm({ ...txnForm });
+                }}
+              />
+              <FormField
+                label="Transaction Amount"
+                type="number"
+                step="0.01"
+                value={(formData as TransactionFormData).txnAmount}
+                onChange={(e) => {
+                  const txnForm = formData as TransactionFormData;
+                  txnForm.txnAmount = e.target.value;
+                  setTransactionForm({ ...txnForm });
+                }}
+              />
             </>
           )}
         </tbody>
       </table>
       <div className="mt-6 flex justify-end">
-        <button
-          onClick={onAdd}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
+        <Button variant="success" onClick={onAdd}>
           Add {isTransaction ? 'Transaction' : 'Order'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -313,76 +340,76 @@ const MatchPage = () => {
     onRemove: (index: number) => void,
     isTransaction: boolean
   ) => (
-    <div className="mt-6">
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+    <div className="data-table">
+      <h3 className="table-title">{title}</h3>
+      <div className="table-container">
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeader>Customer</TableHeader>
+              <TableHeader>Order ID</TableHeader>
+              <TableHeader>Date</TableHeader>
+              <TableHeader>Item</TableHeader>
+              <TableHeader>Price</TableHeader>
               {isTransaction && (
                 <>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <TableHeader>Type</TableHeader>
+                  <TableHeader>Amount</TableHeader>
                 </>
               )}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+              <TableHeader>Actions</TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {data.map((item, index) => (
-              <tr key={index}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.customer}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.orderId}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.item}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.price.toFixed(2)}</td>
+              <TableRow key={index}>
+                <TableCell>{item.customer}</TableCell>
+                <TableCell>{item.orderId}</TableCell>
+                <TableCell>{item.date}</TableCell>
+                <TableCell>{item.item}</TableCell>
+                <TableCell>${item.price.toFixed(2)}</TableCell>
                 {isTransaction && (
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(item as Transaction).txnType}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${(item as Transaction).txnAmount.toFixed(2)}</td>
+                    <TableCell>{(item as Transaction).txnType}</TableCell>
+                    <TableCell>${(item as Transaction).txnAmount.toFixed(2)}</TableCell>
                   </>
                 )}
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 space-x-2">
-                  <button
-                    onClick={() => handleGenerateTransaction(item as Order)}
-                    className="text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Generate Transaction
-                  </button>
-                  <button
+                <TableCell className="space-x-2">
+                  {!isTransaction && (
+                    <Button 
+                      variant="default" 
+                      onClick={() => handleGenerateTransaction(item as Order)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Generate Transaction
+                    </Button>
+                  )}
+                  <Button 
+                    variant="danger" 
                     onClick={() => onRemove(index)}
-                    className="text-red-600 hover:text-red-800 font-medium"
                   >
                     Remove
-                  </button>
-                </td>
-              </tr>
+                  </Button>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
 
   return (
-    <div className="p-6 max-w-[1200px] mx-auto bg-gray-50">
+    <div className="page-container">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Order Transaction Matcher</h1>
-        <button
-          onClick={handleClearAll}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
+        <Button variant="danger" onClick={handleClearAll}>
           Clear All Data
-        </button>
+        </Button>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'row', gap: '2rem', justifyContent: 'center' }}>
-        <div style={{ flex: '0 0 500px' }}>
+      <div className="form-container">
+        <div className="form-section">
           {renderInputForm(
             'Add Order',
             orderForm,
@@ -392,7 +419,7 @@ const MatchPage = () => {
           )}
         </div>
         
-        <div style={{ flex: '0 0 500px' }}>
+        <div className="form-section">
           {renderInputForm(
             'Add Transaction',
             transactionForm,
@@ -404,65 +431,22 @@ const MatchPage = () => {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded">
+        <div className="mt-6 p-4 bg-red-100 text-red-700 rounded">
           {error}
         </div>
       )}
 
-      {/* Orders Table */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Orders</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {orders.map((order, index) => (
-                <tr key={index}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.orderId}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.item}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${order.price}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 space-x-2">
-                    <button
-                      onClick={() => handleGenerateTransaction(order)}
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Generate Transaction
-                    </button>
-                    <button
-                      onClick={() => removeOrder(index)}
-                      className="text-red-600 hover:text-red-800 font-medium"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+      {renderDataTable('Orders', orders, removeOrder, false)}
       {renderDataTable('Transactions', transactions, removeTransaction, true)}
 
       <div className="mt-6">
-        <button
-          className="px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400 text-lg"
+        <Button 
+          variant="primary" 
           onClick={handleMatch}
           disabled={loading || orders.length === 0 || transactions.length === 0}
         >
           {loading ? 'Matching...' : 'Match Orders & Transactions'}
-        </button>
+        </Button>
       </div>
 
       {matches.length > 0 && (
@@ -470,66 +454,79 @@ const MatchPage = () => {
           <h2 className="text-2xl font-semibold mb-4">Matching Results</h2>
           <div className="space-y-6">
             {matches.map((match, index) => (
-              <div key={index} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold">Order {index + 1}</h3>
+              <div key={index} className="match-card">
+                <div className="match-header">
+                  <h3 className="match-title">Order {index + 1}</h3>
                 </div>
-                <div className="p-6">
-                  <table className="min-w-full divide-y divide-gray-200 mb-6">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.customer}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.orderId}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.date}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{match.order.item}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${match.order.price.toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="match-content">
+                  <div className="data-table">
+                    <h3 className="table-title">Order Details</h3>
+                    <div className="table-container">
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableHeader>Customer</TableHeader>
+                            <TableHeader>Order ID</TableHeader>
+                            <TableHeader>Date</TableHeader>
+                            <TableHeader>Item</TableHeader>
+                            <TableHeader>Price</TableHeader>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell>{match.order.customer}</TableCell>
+                            <TableCell>{match.order.orderId}</TableCell>
+                            <TableCell>{match.order.date}</TableCell>
+                            <TableCell>{match.order.item}</TableCell>
+                            <TableCell>${match.order.price.toFixed(2)}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
 
-                  <div className="mt-6">
-                    <h4 className="text-lg font-semibold mb-4 text-gray-700">Matched Transactions</h4>
+                  <div className="data-table mt-6">
+                    <h3 className="table-title">Matched Transactions</h3>
                     {match.txns.length === 0 ? (
                       <p className="text-gray-500 italic">No matching transactions found</p>
                     ) : (
-                      <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-100">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                      <div className="table-container">
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableHeader>Customer</TableHeader>
+                              <TableHeader>Order ID</TableHeader>
+                              <TableHeader>Date</TableHeader>
+                              <TableHeader>Item</TableHeader>
+                              <TableHeader>Price</TableHeader>
+                              <TableHeader>Type</TableHeader>
+                              <TableHeader>Amount</TableHeader>
+                              <TableHeader>Score</TableHeader>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
                             {match.txns.map(({ txn, score }, txnIndex) => (
-                              <tr key={txnIndex} className={txnIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.customer}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.orderId}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.date}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.item}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.price.toFixed(2)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{txn.txnType}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${txn.txnAmount.toFixed(2)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">{(Math.floor(score * 100) / 100).toFixed(2)}</td>
-                              </tr>
+                              <TableRow key={txnIndex}>
+                                <TableCell>{txn.customer}</TableCell>
+                                <TableCell>{txn.orderId}</TableCell>
+                                <TableCell>{txn.date}</TableCell>
+                                <TableCell>{txn.item}</TableCell>
+                                <TableCell>${txn.price.toFixed(2)}</TableCell>
+                                <TableCell>{txn.txnType}</TableCell>
+                                <TableCell>${txn.txnAmount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <span className={`score-badge ${
+                                    score > 0.8 ? 'score-high' :
+                                    score > 0.5 ? 'score-medium' :
+                                    'score-low'
+                                  }`}>
+                                    {(Math.floor(score * 100) / 100).toFixed(2)}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
                             ))}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                     )}
                   </div>
