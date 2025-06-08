@@ -3,53 +3,16 @@ import type { Order, Transaction, Match } from 'xact-matcher-shared';
 import { mutateString, mutatePrice } from 'xact-matcher-shared';
 import Cookies from 'js-cookie';
 import { matchOrdersAndTransactions } from '../api/client';
-
-// Styled components for common patterns
-const TableCell = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <td className={`table-cell ${className}`}>{children}</td>
-);
-
-const TableHeader = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <th className={`table-header-cell ${className}`}>{children}</th>
-);
-
-const TableRow = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <tr className={`table-row ${className}`}>{children}</tr>
-);
-
-const TableHead = ({ children }: { children: React.ReactNode }) => (
-  <thead className="table-header">{children}</thead>
-);
-
-const TableBody = ({ children }: { children: React.ReactNode }) => (
-  <tbody className="table-body">{children}</tbody>
-);
-
-const Table = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => (
-  <table className={`table ${className}`}>{children}</table>
-);
-
-const Button = ({ 
-  children, 
-  onClick, 
-  variant = 'default',
-  className = '',
-  disabled = false 
-}: { 
-  children: React.ReactNode, 
-  onClick?: () => void,
-  variant?: 'default' | 'primary' | 'danger' | 'success',
-  className?: string,
-  disabled?: boolean
-}) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    className={`btn btn-${variant} ${className}`}
-  >
-    {children}
-  </button>
-);
+import {
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  Button,
+  FormField,
+} from '../components/ui';
 
 // Redefine these types with all fields being strings so that they can be filled
 // in with forms.
@@ -85,59 +48,6 @@ const COOKIE_KEYS = {
   ORDERS: 'xact-matcher-orders',
   TRANSACTIONS: 'xact-matcher-transactions'
 } as const;
-
-const Input = ({ 
-  type = 'text',
-  value,
-  onChange,
-  step,
-  className = ''
-}: { 
-  type?: 'text' | 'number' | 'date',
-  value: string,
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
-  step?: string,
-  className?: string 
-}) => (
-  <input
-    type={type}
-    value={value}
-    onChange={onChange}
-    step={step}
-    className={`form-input ${className}`}
-  />
-);
-
-const FormField = ({ 
-  label,
-  type = 'text',
-  value,
-  onChange,
-  step,
-  className = ''
-}: { 
-  label: string,
-  type?: 'text' | 'number' | 'date',
-  value: string,
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
-  step?: string,
-  className?: string 
-}) => (
-  <tr>
-    <td className="form-label-cell">
-      <label className="form-label">{label}</label>
-    </td>
-    <td className="form-input-cell">
-      <Input
-        type={type}
-        value={value}
-        onChange={onChange}
-        step={step}
-        className={className}
-      />
-    </td>
-  </tr>
-);
 
 const MatchPage = () => {
   const [orderForm, setOrderForm] = useState<OrderFormData>(initialOrderForm);
@@ -194,7 +104,7 @@ const MatchPage = () => {
   const addTransaction = () => {
     const price = parseFloat(transactionForm.price);
     const txnAmount = parseFloat(transactionForm.txnAmount);
-    
+
     if (isNaN(price) || isNaN(txnAmount)) {
       setError('Price and transaction amount must be valid numbers');
       return;
@@ -376,16 +286,16 @@ const MatchPage = () => {
                 )}
                 <TableCell className="space-x-2">
                   {!isTransaction && (
-                    <Button 
-                      variant="default" 
+                    <Button
+                      variant="default"
                       onClick={() => handleGenerateTransaction(item as Order)}
                       className="text-blue-600 hover:text-blue-800"
                     >
                       Generate Transaction
                     </Button>
                   )}
-                  <Button 
-                    variant="danger" 
+                  <Button
+                    variant="danger"
                     onClick={() => onRemove(index)}
                   >
                     Remove
@@ -407,7 +317,7 @@ const MatchPage = () => {
           Clear All Data
         </Button>
       </div>
-      
+
       <div className="form-container">
         <div className="form-section">
           {renderInputForm(
@@ -418,7 +328,7 @@ const MatchPage = () => {
             false
           )}
         </div>
-        
+
         <div className="form-section">
           {renderInputForm(
             'Add Transaction',
@@ -440,8 +350,8 @@ const MatchPage = () => {
       {renderDataTable('Transactions', transactions, removeTransaction, true)}
 
       <div className="mt-6">
-        <Button 
-          variant="primary" 
+        <Button
+          variant="primary"
           onClick={handleMatch}
           disabled={loading || orders.length === 0 || transactions.length === 0}
         >
@@ -515,11 +425,10 @@ const MatchPage = () => {
                                 <TableCell>{txn.txnType}</TableCell>
                                 <TableCell>${txn.txnAmount.toFixed(2)}</TableCell>
                                 <TableCell>
-                                  <span className={`score-badge ${
-                                    score > 0.8 ? 'score-high' :
-                                    score > 0.5 ? 'score-medium' :
-                                    'score-low'
-                                  }`}>
+                                  <span className={`score-badge ${score > 0.8 ? 'score-high' :
+                                      score > 0.5 ? 'score-medium' :
+                                        'score-low'
+                                    }`}>
                                     {(Math.floor(score * 100) / 100).toFixed(2)}
                                   </span>
                                 </TableCell>
