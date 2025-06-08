@@ -8,12 +8,34 @@ import { matchOrders } from './matchController';
 // single requests and multiple requests in parallel.
 const BATCH_SIZE = 150;
 
+/**
+ * Piscina expects a path to a file, not a function. That makes it awkward when
+ * we're using TypeScript in dev mode, 'cuz the filename is different than prod.
+ */
+const resolveWorkerPath = () => {
+    const isDev = process.env.NODE_ENV !== 'production';
+    return resolve(
+        __dirname,
+        isDev ? 'matchController.ts' : 'matchController.js'
+    );
+};
+
+/**
+ * The worker pool. Scales to the number of cores on the machine.
+ */
 export const matchOrdersPool = new Piscina({
-    filename: resolve(__dirname, 'matchController.ts'),
+    filename: resolveWorkerPath(),
     maxThreads: os.cpus().length,
     minThreads: 1,
 });
 
+/**
+ * Breaks the Transactions into batches and sends them to the worker pool.
+ * Stitches the results back together after they're returned. This has the dual
+ * benefit of being able to handle large requests more quickly as well as being
+ * able to handle multiple requests in parallel by not doing any real work on
+ * the main thread.
+ */
 export const batchedMatchOrders = async (
     orders: Order[],
     transactions: Transaction[],

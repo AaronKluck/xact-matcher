@@ -12,9 +12,14 @@ const FIELD_WEIGHTS = {
 
 const WEIGHT_SUM = Object.values(FIELD_WEIGHTS).reduce((sum, weight) => sum + weight, 0);
 
+/**
+ * Match a single Transaction to the Order with which it has the highest score.
+ * Returns the index of that Order and the score itself.
+ */
 const matchOrderIdx = (orders: Order[], transaction: Transaction): { orderIdx: number, score: number } => {
     const stringify = (arg: any): string => typeof arg === 'string' ? arg : `${arg}`;
 
+    // Initialize the scores for each field to an empty array
     const scores: { [field: string]: number[] } = {
         [MATCH_FIELD.customer]: [],
         [MATCH_FIELD.orderId]: [],
@@ -48,6 +53,9 @@ const matchOrderIdx = (orders: Order[], transaction: Transaction): { orderIdx: n
     return { orderIdx, score: totalScores[orderIdx] / WEIGHT_SUM };
 };
 
+/**
+ * Match each Transaction to the Order with which it has the highest score.
+ */
 export const matchOrders = (
     orders: Order[], transactions: Transaction[]
 ): Match[] => {
@@ -67,6 +75,9 @@ export const matchOrders = (
     return matches;
 };
 
+/**
+ * Wrap in a format that Piscina likes.
+ */
 export default ({ orders, transactions }: { orders: Order[], transactions: Transaction[] }) => {
     return matchOrders(orders, transactions);
 };

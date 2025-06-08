@@ -17,6 +17,10 @@ const visualSimilarity: Record<string, Record<string, number>> = {
   'T': { '7': 0.6 },
 };
 
+/**
+ * Returns a score between 0 and 1 for how similar two characters are,
+ * where 1 is a perfect match and 0 is a complete mismatch.
+ */
 function visualCharSimilarity(a: string, b: string): number {
   if (a === b) return 1.0;
   if (a.toUpperCase() === b.toUpperCase()) return 0.9;
@@ -33,7 +37,6 @@ function visualCharSimilarity(a: string, b: string): number {
 /**
  * Implements a visual-match-aware Levenshtein distance algorithm. The fuzzy
  * matching libraries I could find only accounted for placement and case.
- * For transparency: I had an AI help me write this.
  */
 export function fuzzyVisualScore(base: string, input: string): number {
   const m = base.length;
